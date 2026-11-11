@@ -63,6 +63,7 @@ public final class HookEntry implements IXposedHookLoadPackage {
     }
 
     private static void install(ClassLoader loader, final Context appContext) {
+        AdEventProbe.install(loader);
         try {
             Class<?> mapper = XposedHelpers.findClass(
                 "com.revenuecat.purchases.hybridcommon.mappers.CustomerInfoMapperKt", loader);

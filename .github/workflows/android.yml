@@ -33,6 +33,8 @@ jobs:
         run: python3 scripts/rebuild_xposed_stubs.py
       - name: Verify Android toolchain pins
         run: python3 scripts/verify_android_toolchain.py
+      - name: Verify LSPosed recommended scope and read-only ad QA
+        run: python3 scripts/verify_mcc_ad_qa.py
       - name: Build test APK and test entitlement fixture
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
       - name: Verify module metadata and scope
