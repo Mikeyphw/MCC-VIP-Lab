@@ -3,26 +3,34 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['app/**','build.gradle','settings.gradle','gradle.properties','.github/workflows/android.yml']
+    paths: ['app/**', 'build.gradle', 'settings.gradle', 'gradle.properties', 'scripts/**', '.github/workflows/android.yml']
 permissions:
   contents: read
 jobs:
   build:
     name: Android debug APK + unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - name: Check out sources
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5 Node24
+        with:
+          persist-credentials: false
+      - name: Set up Java 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5 Node24
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - name: Android SDK platform
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
-      - uses: gradle/actions/setup-gradle@v4
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2 Node24
         with:
           gradle-version: '8.11.1'
+      - name: Set up Android SDK (v4)
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4 Node24
+      - name: Install Android SDK platform and build tools
+        run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Verify Android toolchain pins
+        run: python3 scripts/verify_android_toolchain.py
       - name: Build test APK and test entitlement fixture
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
       - name: Verify module metadata and scope
