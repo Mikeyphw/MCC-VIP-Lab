@@ -1,0 +1,12 @@
+{
+  "package": "br.art.code.meucronogramacapilar",
+  "version": "20.2609.3009",
+  "base_sha256": "d37ad349c80c8d2d2999b4175d11ba6863f1436e05181be1a0492a52229bee4e",
+  "libapp_sha256": "8bfd4a7854ff6f01e6d142ae45e33a7d9939fbaf4ad9bbd32cf8610b2082b687",
+  "dex_method_confirmations": [
+    "Lcom/revenuecat/purchases_flutter/PurchasesFlutterPlugin;->getCustomerInfo(Lio/flutter/plugin/common/MethodChannel$Result;)V",
+    "Lcom/revenuecat/purchases/hybridcommon/mappers/CustomerInfoMapperKt;->map(Lcom/revenuecat/purchases/CustomerInfo;)Ljava/util/Map;"
+  ],
+  "entitlement": "premium_noads",
+  "validation": "static DEX and Dart AOT inspection only"
+}

@@ -1,0 +1,26 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'dev.mikey.mccviplab'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'dev.mikey.mccviplab'
+        minSdk 26
+        targetSdk 28
+        versionCode 1
+        versionName '1.0.0-lab'
+    }
+    buildTypes { release { minifyEnabled false } }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    testOptions { unitTests.returnDefaultValues = true }
+}
+
+dependencies {
+    // Compile signatures only. The stubs are NOT packaged into the module.
+    compileOnly files('libs/xposed-api-82-stubs.jar')
+    testImplementation 'junit:junit:4.13.2'
+}
