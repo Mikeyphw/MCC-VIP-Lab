@@ -29,6 +29,8 @@ jobs:
         uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4 Node24
       - name: Install Android SDK platform and build tools
         run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Build Java-17 Xposed API stubs with verified runtime descriptors
+        run: python3 scripts/rebuild_xposed_stubs.py
       - name: Verify Android toolchain pins
         run: python3 scripts/verify_android_toolchain.py
       - name: Build test APK and test entitlement fixture
