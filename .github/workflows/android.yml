@@ -35,6 +35,10 @@ jobs:
         run: python3 scripts/verify_android_toolchain.py
       - name: Verify LSPosed recommended scope and read-only ad QA
         run: python3 scripts/verify_mcc_ad_qa.py
+      - name: P02 sanitized runtime tracing and synthetic reward regression tests
+        run: |
+          python3 scripts/verify_mcc_p02.py
+          python3 -m unittest discover -s scripts -p 'test_mcc_*.py' -v
       - name: Build test APK and test entitlement fixture
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
       - name: Verify module metadata and scope

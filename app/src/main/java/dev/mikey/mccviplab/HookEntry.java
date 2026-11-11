@@ -64,15 +64,20 @@ public final class HookEntry implements IXposedHookLoadPackage {
 
     private static void install(ClassLoader loader, final Context appContext) {
         AdEventProbe.install(loader);
+        LocalStateProbe.install();
+        PurchaseCallProbe.install(loader);
         try {
             Class<?> mapper = XposedHelpers.findClass(
                 "com.revenuecat.purchases.hybridcommon.mappers.CustomerInfoMapperKt", loader);
             XposedBridge.hookAllMethods(mapper,"map",new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam param) {
                     try {
-                        Map<String,Object> changed=VipPayload.patch(param.getResult());
+                        Object raw = param.getResult();
+                        XposedBridge.log("MCCVIPSTATE: MAPPER_BEFORE " + VipStateProbe.describe(raw));
+                        Map<String,Object> changed=VipPayload.patch(raw);
                         if(changed==null) return;
                         param.setResult(changed);
+                        XposedBridge.log("MCCVIPSTATE: MAPPER_AFTER " + VipStateProbe.describe(changed));
                         log("PATCH_MAPPER_PASS entitlement="+VipPayload.ENTITLEMENT);
                         showPatched(appContext);
                     } catch(Throwable t) { log("PATCH_MAPPER_ERROR "+t.getClass().getSimpleName()); }
@@ -93,9 +98,11 @@ public final class HookEntry implements IXposedHookLoadPackage {
                                 @Override public Object invoke(Object proxy,Method m,Object[] args) throws Throwable {
                                     String method=m.getName();
                                     if ("success".equals(method) && args!=null && args.length==1) {
+                                        XposedBridge.log("MCCVIPSTATE: CUSTOMER_INFO_BEFORE " + VipStateProbe.describe(args[0]));
                                         Map<String,Object> patched=VipPayload.patch(args[0]);
                                         if (patched!=null) {
                                             args[0]=patched;
+                                            XposedBridge.log("MCCVIPSTATE: CUSTOMER_INFO_AFTER " + VipStateProbe.describe(patched));
                                             log("PATCH_CUSTOMER_INFO_PASS entitlement="+VipPayload.ENTITLEMENT);
                                             showPatched(appContext);
                                         } else { log("PATCH_CUSTOMER_INFO_BAD_SHAPE"); }
