@@ -65,6 +65,9 @@ public final class HookEntry implements IXposedHookLoadPackage {
     private static void install(ClassLoader loader, final Context appContext) {
         AdEventProbe.install(loader);
         LocalStateProbe.install();
+        DiamondProbe.install(appContext);
+        AdInstanceTrace.install(loader);
+        NativeBannerProbe.install(loader, appContext);
         PurchaseCallProbe.install(loader);
         try {
             Class<?> mapper = XposedHelpers.findClass(

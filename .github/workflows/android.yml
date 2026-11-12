@@ -39,6 +39,10 @@ jobs:
         run: |
           python3 scripts/verify_mcc_p02.py
           python3 -m unittest discover -s scripts -p 'test_mcc_*.py' -v
+      - name: Verify P03 scoped local observations and safe toggles
+        run: python3 scripts/verify_mcc_p03.py
+      - name: P03 offline log-correlation regressions
+        run: python3 -m unittest discover -s scripts -p 'test_mcc_p03*.py' -v
       - name: Build test APK and test entitlement fixture
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
       - name: Verify module metadata and scope
