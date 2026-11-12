@@ -18,20 +18,6 @@ public final class DiamondFileIOTrace {
     private static final AtomicInteger EVENTS = new AtomicInteger();
     private DiamondFileIOTrace() {}
 
-    static String label(Object source) {
-        if (!(source instanceof File) && !(source instanceof String)) return null;
-        String path = source instanceof File ? ((File) source).getPath() : (String) source;
-        String normal = path.replace('\\', '/');
-        // Ignore arbitrary account- or network-derived strings; log a fixed label only.
-        if (!normal.contains("/databases/")) return null;
-        int slash = normal.lastIndexOf('/');
-        String basename = normal.substring(slash + 1);
-        if (basename.endsWith("-DiamondBalance")) return "DiamondBalance";
-        if (basename.endsWith("-LastSyncAzure")) return "LastSyncAzure";
-        if (basename.endsWith("-LastSyncHasura")) return "LastSyncHasura";
-        return null;
-    }
-
     private static void note(String event, String label) {
         if (label == null) return;
         if (EVENTS.incrementAndGet() > MAX_EVENTS) return;
@@ -43,7 +29,7 @@ public final class DiamondFileIOTrace {
         XposedBridge.hookAllConstructors(type, new XC_MethodHook() {
             @Override protected void afterHookedMethod(MethodHookParam p) {
                 if (p.args == null || p.args.length == 0) return;
-                String target = label(p.args[0]);
+                String target = DiamondFileLabel.label(p.args[0]);
                 note(event, target);
             }
         });
@@ -61,8 +47,8 @@ public final class DiamondFileIOTrace {
             XposedBridge.hookAllMethods(File.class, "renameTo", new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam p) {
                     if (p.args == null || p.args.length == 0) return;
-                    String target = label(p.args[0]);
-                    if (target == null && p.thisObject instanceof File) target = label(p.thisObject);
+                    String target = DiamondFileLabel.label(p.args[0]);
+                    if (target == null && p.thisObject instanceof File) target = DiamondFileLabel.label(p.thisObject);
                     if (target != null) note("JAVA_RENAME", target);
                 }
             });

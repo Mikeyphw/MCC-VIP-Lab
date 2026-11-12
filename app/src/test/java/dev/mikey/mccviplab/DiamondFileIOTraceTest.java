@@ -6,14 +6,14 @@ import org.junit.Test;
 
 public class DiamondFileIOTraceTest {
     @Test public void recognizesOnlyTargetDataBasenames() {
-        assertEquals("DiamondBalance", DiamondFileIOTrace.label(new File(
+        assertEquals("DiamondBalance", DiamondFileLabel.label(new File(
                 "/data/user/0/br.art.code.meucronogramacapilar/databases/accountkey-DiamondBalance")));
-        assertEquals("LastSyncAzure", DiamondFileIOTrace.label(
+        assertEquals("LastSyncAzure", DiamondFileLabel.label(
                 "/data/data/br.art.code.meucronogramacapilar/databases/accountkey-LastSyncAzure"));
-        assertEquals("LastSyncHasura", DiamondFileIOTrace.label(
+        assertEquals("LastSyncHasura", DiamondFileLabel.label(
                 "/data/data/br.art.code.meucronogramacapilar/databases/accountkey-LastSyncHasura"));
-        assertNull(DiamondFileIOTrace.label("/data/user/0/other/files/accessToken"));
-        assertNull(DiamondFileIOTrace.label("/data/user/0/other/databases/ads.db"));
-        assertNull(DiamondFileIOTrace.label(new Object()));
+        assertNull(DiamondFileLabel.label("/data/user/0/other/files/accessToken"));
+        assertNull(DiamondFileLabel.label("/data/user/0/other/databases/ads.db"));
+        assertNull(DiamondFileLabel.label(new Object()));
     }
 }
