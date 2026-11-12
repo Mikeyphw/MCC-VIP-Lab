@@ -38,6 +38,7 @@ import java.util.Set;
 public final class XposedBridge {
  public static void log(String message) {}
  public static Set<XC_MethodHook.Unhook> hookAllMethods(Class<?> c, String name, XC_MethodHook callback) { return null; }
+ public static Set<XC_MethodHook.Unhook> hookAllConstructors(Class<?> c, XC_MethodHook callback) { return null; }
 }
 ''',
     'de/robv/android/xposed/XposedHelpers.java': '''package de.robv.android.xposed;
@@ -80,5 +81,6 @@ methods = subprocess.run(
      'de.robv.android.xposed.XposedBridge', 'de.robv.android.xposed.XposedHelpers'],
     check=True, capture_output=True, text=True).stdout
 assert '(Ljava/lang/Class;Ljava/lang/String;Lde/robv/android/xposed/XC_MethodHook;)Ljava/util/Set;' in methods, 'hookAllMethods return signature mismatch'
+assert '(Ljava/lang/Class;Lde/robv/android/xposed/XC_MethodHook;)Ljava/util/Set;' in methods, 'hookAllConstructors return signature mismatch'
 assert '(Ljava/lang/Class;Ljava/lang/String;[Ljava/lang/Object;)Lde/robv/android/xposed/XC_MethodHook$Unhook;' in methods, 'findAndHookMethod return signature mismatch'
 print('MCC_XPOSED_STUBS_JAVA17_ABI_PASS', len(entries), hashlib.sha256(JAR.read_bytes()).hexdigest())

@@ -67,6 +67,7 @@ public final class HookEntry implements IXposedHookLoadPackage {
         LocalStateProbe.install();
         DiamondProbe.install(appContext);
         AdInstanceTrace.install(loader);
+        DiamondFileIOTrace.install();
         NativeBannerProbe.install(loader, appContext);
         PurchaseCallProbe.install(loader);
         try {
