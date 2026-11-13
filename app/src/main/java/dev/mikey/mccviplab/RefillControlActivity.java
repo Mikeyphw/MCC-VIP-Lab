@@ -28,6 +28,34 @@ public final class RefillControlActivity extends Activity {
         } catch (PackageManager.NameNotFoundException e) { return false; }
     }
 
+
+    /** These optional cosmetics are configured only by the module's own root UID. */
+    private void addCosmeticSwitch(LinearLayout panel, String label, String key) {
+        Switch toggle = new Switch(this);
+        toggle.setText(label);
+        toggle.setChecked(CosmeticControls.enabled(this, key));
+        final java.util.concurrent.atomic.AtomicBoolean reverting =
+                new java.util.concurrent.atomic.AtomicBoolean(false);
+        toggle.setOnCheckedChangeListener((button, checked) -> {
+            if (reverting.get()) return;
+            button.setEnabled(false);
+            new Thread(() -> {
+                String result = CosmeticControls.update(key, checked);
+                runOnUiThread(() -> {
+                    if (!result.startsWith("MODE_SAVED")) {
+                        reverting.set(true);
+                        toggle.setChecked(!checked);
+                        reverting.set(false);
+                    }
+                    button.setEnabled(true);
+                    status.setText("Cosmetic setting: " + result +
+                            "\nReopen Meu Cronograma Capilar to apply fully.");
+                });
+            }, "mcc-p11-cosmetic-control").start();
+        });
+        panel.addView(toggle);
+    }
+
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         LinearLayout panel = new LinearLayout(this);
@@ -46,6 +74,8 @@ public final class RefillControlActivity extends Activity {
         auto.setChecked(AutoRefillWorker.autoEnabled(this));
         auto.setOnCheckedChangeListener((button, checked) -> AutoRefillWorker.setAutoEnabled(this, checked));
         panel.addView(auto);
+        addCosmeticSwitch(panel, "Hide banner ads (rewarded ads untouched)", CosmeticControls.BANNER);
+        addCosmeticSwitch(panel, "Hide Premium promotions (exact Flutter labels)", CosmeticControls.UPSELL);
         force = new Button(this);
         force.setText("Set diamonds to 9 and reopen app");
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(

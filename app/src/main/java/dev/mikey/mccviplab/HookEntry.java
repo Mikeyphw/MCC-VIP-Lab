@@ -78,6 +78,7 @@ public final class HookEntry implements IXposedHookLoadPackage {
         DiamondFileIOTrace.install();
         AutoRefillWatcher.install(appContext);
         InAppRefillButton.install();
+        PremiumUpsellOverlay.install();
         NativeBannerProbe.install(loader, appContext);
         PurchaseCallProbe.install(loader);
         try {

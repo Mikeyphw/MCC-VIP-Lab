@@ -2,7 +2,7 @@ name: Build MCC VIP Lab (debug only)
 on:
   workflow_dispatch:
   push:
-    branches: [main, feature/p10-auto-refill-diamonds-9]
+    branches: [main, feature/p10-auto-refill-diamonds-9, feature/p11-banner-upsell-cleanup]
     paths: ['app/**', 'build.gradle', 'settings.gradle', 'gradle.properties', 'scripts/**', '.github/workflows/android.yml']
 permissions:
   contents: read
@@ -53,6 +53,10 @@ jobs:
           python3 -m unittest discover -s scripts -p 'test_mcc_p07*.py' -v
       - name: P10 zero-only auto-refill source contract
         run: python3 scripts/verify_mcc_p10.py
+      - name: P11 cosmetic-only banner and premium promotional suppression
+        run: |
+          python3 scripts/verify_mcc_p11.py
+          python3 -m unittest discover -s scripts -p 'test_mcc_p11.py' -v
       - name: Build test APK and test entitlement fixture
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
       - name: Verify module metadata and scope
