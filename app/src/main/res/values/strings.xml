@@ -1,4 +1,4 @@
 <resources>
-  <string name="app_name">MCC VIP Lab</string>
-  <string name="description">Scoped to Meu Cronograma Capilar 20.2609.3009. Local RevenueCat entitlement spoof test.</string>
+  <string name="app_name">MCC VIP Lab Personal</string>
+  <string name="description">Personal module for Meu Cronograma Capilar. Last tested: 20.2609.3009. This version is informational, not an installation restriction.</string>
 </resources>

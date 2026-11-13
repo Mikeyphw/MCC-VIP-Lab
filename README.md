@@ -1,59 +1,70 @@
-# MCC VIP Lab — scoped LSPosed client-entitlement spoof
+# MCC VIP Lab — personal LSPosed module
 
-**Authorized local test only.** Targets `br.art.code.meucronogramacapilar`, **exact installed version `20.2609.3009`**, and RevenueCat's Flutter `premium_noads` entitlement. This is a QA probe for client-side trust, not a genuine purchase. It does not deliberately modify Google Play Billing, send receipts, or directly write Nhost/GraphQL, but the target application may still react to spoofed client state with its own backend calls. Use a separate test account / staging backend.
+Personal-use modification for the Android app **Meu Cronograma Capilar**
+(package `br.art.code.meucronogramacapilar`). It contains local RevenueCat
+entitlement instrumentation, ad/reward diagnostics and a configurable
+nine-diamond refill. It is **not** a genuine premium purchase or a server-side
+currency authorization mechanism.
 
-## How it works
+**Last manually tested target app version: `20.2609.3009`.** This number is
+**informational only**. Newer app versions are allowed to launch and install
+hooks; compatibility of individual Android/Flutter APIs or local balance
+formats is not guaranteed. The module logs both the recorded and installed
+version, never refuses solely because the numbers differ.
 
-1. After application attachment, verifies package/version and installs two LSPosed hooks.
-2. Hooks the verified Android SDK method `CustomerInfoMapperKt.map(CustomerInfo) -> Map` and locally adds `premium_noads` to `entitlements.active` and `.all`, plus active subscription lists/dates. It copies maps instead of modifying the original SDK object.
-3. Wraps `PurchasesFlutterPlugin.getCustomerInfo(MethodChannel.Result)` to ensure the asynchronous Flutter-facing response carries the same test entitlement.
-4. Displays a one-time Android toast after successful spoofing and logs `MCCVIPLAB: HOOK_*` and `MCCVIPLAB: PATCH_*` in LSPosed logs.
+## Personal diamond control
 
-No native Flutter AOT (`libapp.so`) patch is attempted. The hooks have concrete method signatures verified from this exact APK's DEX, but **there is no runtime device validation**. If your app derives `premiumLevel` from local cache or Nhost independently of RevenueCat, you may see `PATCH_*_PASS` without the VIP UI unlocking. That would be an actionable finding, not a qualified bypass.
+- In Meu Cronograma Capilar, the compact **`♦ 9`** button is positioned beside
+  the diamond indicator when Flutter exposes its accessibility semantics.
+  Otherwise it uses a **top-right fallback**; exact placement must be checked
+  on the device.
+- The in-app button opens the separate **MCC VIP Lab Personal** Activity.
+  On Android 14+, a verified request from the target app starts the operation.
+  The root command executes under the **module's UID**, not the target's UID.
+- The standalone module screen also has a manual button and an auto-refill
+  toggle. Auto-refill triggers at a persisted balance of exactly zero.
+- Uses the successful P09 mechanism: force-stop the target, write the sole
+  account-local `*-DiamondBalance` ASCII value `9`, verify the file and request
+  Android to reopen the app. **Write verification and launch success are
+  reported separately**; it can succeed at writing while failing to relaunch.
+- No fabricated rewarded-ad callback or direct backend write is added.
+  This local change can still interact with existing app synchronization.
 
-## Build via GitHub Actions (recommended)
+## Build and sign for personal use
 
-Publish this directory as a **private** repo. It contains `.github/workflows/android.yml`. A push to `main` triggers unit tests and an `app-debug.apk` artifact. It uses hosted Gradle; no local Gradle needed. The build checks `xposed_init`/scope inside the APK.
+Builds run **only on GitHub Actions**; never run Gradle in Termux. The repository
+contains a manually triggered **Personal Release** workflow that builds a
+signed APK using your own stable signing key stored in encrypted GitHub Secrets.
+No signing material is committed to Git.
+
+From Termux, after the main branch has been promoted:
 
 ```zsh
-git init -b main
-git add .
-git commit -m 'test: add app-scoped MCC VIP LSPosed lab'
-gh repo create MCC-VIP-Lab --private --source=. --remote=origin --push
-gh run watch -R Mikeyphw/MCC-VIP-Lab --exit-status
-mkdir -p ./artifacts
-gh run download -R Mikeyphw/MCC-VIP-Lab -n mcc-vip-lab-debug -D ./artifacts
-find ./artifacts -name '*.apk' -type f -print
+pkg install -y openjdk-17 gh python
+python3 scripts/configure_personal_signing.py --publish-secrets
+gh workflow run personal-release.yml -R Mikeyphw/MCC-VIP-Lab --ref main
 ```
 
-## Install / test
+After the workflow succeeds, install the APK matching the exact local commit:
 
 ```zsh
-adb -s localhost:5555 install -r ./artifacts/app-debug.apk
+python3 scripts/install_personal_release.py --serial localhost:5555
 ```
 
-Enable **MCC VIP Lab** in LSPosed/Vector and scope it **only** to **Meu Cronograma Capilar**, not System Framework. Force-stop and restart the target app:
+An existing debug-signed module may have a different Android signing
+certificate. The installer does not uninstall it automatically.
 
-```zsh
-adb -s localhost:5555 shell am force-stop br.art.code.meucronogramacapilar
-adb -s localhost:5555 shell monkey -p br.art.code.meucronogramacapilar 1
-adb -s localhost:5555 logcat -d -v brief | grep -E 'MCCVIPLAB|Xposed|LSPosed' | tail -100
-```
+See [personal release and safety notes](docs/personal_release.md) for signing
+key backups, source-history archive, root/UID behavior and limitations.
 
-The one-time toast indicates local CustomerInfo patching, **not** proof that premium features unlocked. The acceptance test is whether the target's VIP-only feature can be opened using a *non-paying test account*. Keep cloud permissions and entitlements unchanged.
+## Scoped diagnostics and legacy tools
 
-## Interpreting results
+Earlier diagnostic workflows and Python scripts (P02–P07) remain in the
+repository. LSPosed/Vector scope stays limited to
+`br.art.code.meucronogramacapilar`. RevenueCat hooks simulate local entitlement
+state; they do not constitute purchases, verified receipts, or server proof.
+Those hooks can cease working when the target app changes its implementation.
 
-- `TARGET_PROCESS` but no `HOOK_*_INSTALLED`: inspect Xposed API/runtime and class loading.
-- `HOOK_MAPPER_INSTALLED` + `PATCH_MAPPER_PASS` or `PATCH_CUSTOMER_INFO_PASS`: local RevenueCat result spoof actually fired.
-- Spoof fired but VIP UI remains locked: another check (Dart store/Nhost/cache) is authoritative, so this is **not** an unlock.
-- VIP UI unlocks while server refuses premium action: local-only entitlement bypass, backend control works.
-- VIP server capability succeeds on a test account without verified purchase: **security finding**, fix server-side authorization.
-
-## Scope and reversibility
-
-Disable module in LSPosed, force-stop target app, and optionally uninstall `dev.mikey.mccviplab`. Nothing in the original target APK is modified. Verify server test account afterward because the target app may synchronize client state itself.
-
-## Source verification
-
-The complete split set used to derive the hook signatures includes `PurchasesFlutterPlugin.getCustomerInfo(MethodChannel$Result)` and `CustomerInfoMapperKt.map(CustomerInfo) -> java.util.Map`. See the accompanying `source_evidence.json` for hashes. No runtime hook success is claimed.
+Use your own authorized test environment when evaluating backend behavior.
+You can disable the module in LSPosed/Vector and reopen the target app. Existing
+local balance data may remain changed after disabling the module.

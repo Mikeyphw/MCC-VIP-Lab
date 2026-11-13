@@ -3,18 +3,17 @@
     <queries>
         <package android:name="br.art.code.meucronogramacapilar" />
     </queries>
-    <application android:label="MCC VIP Lab" android:allowBackup="false" android:description="@string/description">
+    <application android:label="MCC VIP Lab Personal" android:allowBackup="false" android:description="@string/description">
         <activity android:name=".RefillControlActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <provider android:name=".ModuleRefillProvider"
-            android:authorities="dev.mikey.mccviplab.refill"
-            android:exported="true" />
+        <!-- The old exported provider is deliberately removed: UI and auto both
+             use ActivityOptions share-identity and an explicit module Activity. -->
         <meta-data android:name="xposedmodule" android:value="true" />
-        <meta-data android:name="xposeddescription" android:value="MCC-specific RevenueCat client-side VIP tampering test" />
+        <meta-data android:name="xposeddescription" android:value="Personal use: in-app diamond control; tested app version is informational" />
         <meta-data android:name="xposedminversion" android:value="82" />
         <meta-data android:name="xposedscope" android:value="br.art.code.meucronogramacapilar" />
     </application>

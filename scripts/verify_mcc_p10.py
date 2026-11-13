@@ -1,54 +1,50 @@
 #!/usr/bin/env python3
-"""P10 HF01: proven P09 lifecycle, UI control and scoped module bridge."""
+"""P10 personal: source contracts; hosted CI must compile Android and run JVM tests."""
 from pathlib import Path
 import xml.etree.ElementTree as ET
-
-root = Path(__file__).resolve().parents[1]
-java = root / 'app/src/main/java/dev/mikey/mccviplab'
-get = lambda name: (java / name).read_text(encoding='utf-8')
-entry = get('HookEntry.java')
-assert entry.count('AutoRefillWatcher.install(appContext);') == 1
-assert entry.count('InAppRefillButton.install();') == 1
-watcher = get('AutoRefillWatcher.java')
-for token in ('AUTO_ZERO', 'RootRefillCommand.PROVIDER_AUTHORITY',
-              'FileObserver.CLOSE_WRITE', 'POLL_MS', 'QUIET_PERIOD_MS',
-              'AutoRefillPolicy.exactZero', 'getContentResolver().call('):
-    assert token in watcher, token
-for forbidden in ('new FileOutputStream(', 'Files.move(', 'setResult(', 'ProcessBuilder(',
-                  'onRewardedAdUserEarnedReward'):
-    assert forbidden not in watcher, forbidden
-button = get('InAppRefillButton.java')
-for token in ('MANUAL_SET_9', 'getContentResolver().call(', 'FlutterActivity',
-              'TARGET_UI_BUTTON_ADDED', 'root.addView(button, lp)', '"♦ Set 9"'):
-    assert token in button, token
-assert 'AdActivity' not in button
-provider = get('ModuleRefillProvider.java')
-for token in ('Binder.getCallingUid()', 'getPackagesForUid(caller)',
-              'RootRefillCommand.TARGET.equals(name)', 'SecurityException',
-              '"AUTO_ZERO"', '"MANUAL_SET_9"'):
-    assert token in provider, token
-worker = get('AutoRefillWorker.java')
-for token in ('new ProcessBuilder("su", "-c", RootRefillCommand.script(auto))',
-              'last_auto_attempt_ms', 'waitFor(', 'AUTO_0_TO_9_RESTART_PASS',
-              'MANUAL_SET_9_RESTART_PASS'):
-    assert token in worker, token
-command = get('RootRefillCommand.java')
-for token in ('am force-stop', 'printf \'%s\' \'9\'',
-              'am start -a android.intent.action.MAIN', 'MCC_REFILL_P09_SEQUENCE_PASS',
-              'trap \'restart_target\' EXIT'):
-    assert token in command, token
-assert command.index('am force-stop') < command.index("printf '%s' '9'")
-manifest = ET.fromstring((root/'app/src/main/AndroidManifest.xml').read_text())
-ns = '{http://schemas.android.com/apk/res/android}'
-application = manifest.find('application')
-assert any(a.attrib.get(ns+'name') == '.RefillControlActivity' and
-           a.attrib.get(ns+'exported') == 'true' for a in application.findall('activity'))
-assert any(p.attrib.get(ns+'name') == '.ModuleRefillProvider' and
-           p.attrib.get(ns+'authorities') == 'dev.mikey.mccviplab.refill' and
-           p.attrib.get(ns+'exported') == 'true' for p in application.findall('provider'))
-workflow = (root/'.github/workflows/android.yml').read_text()
-assert 'feature/p10-auto-refill-diamonds-9' in workflow
-assert 'python3 scripts/verify_mcc_p10.py' in workflow
+root=Path(__file__).resolve().parents[1]
+java=root/'app/src/main/java/dev/mikey/mccviplab'
+get=lambda n:(java/n).read_text(encoding='utf-8')
+entry=get('HookEntry.java')
+assert entry.count('AutoRefillWatcher.install(appContext);')==1
+assert entry.count('InAppRefillButton.install();')==1
+assert 'LAST_TESTED_APP_VERSION = "20.2609.3009"' in entry
+assert 'record_only=true' in entry
+assert 'REFUSED_VERSION' not in entry
+button=get('InAppRefillButton.java')
+for item in ('findDiamond(', 'AccessibilityNodeProvider.HOST_VIEW_ID',
+             'DiamondButtonPlacement.position(', 'setShareIdentityEnabled(true)',
+             'RootRefillCommand.ACTION_FROM_TARGET', '♦ 9', 'requestAutomatic()'):
+    assert item in button,item
+assert 'getContentResolver().call(' not in button
+assert 'ProcessBuilder(' not in button
+assert 'grant root' not in button.lower()
+watcher=get('AutoRefillWatcher.java')
+for item in ('InAppRefillButton.requestAutomatic()', 'POLL_MS',
+             'QUIET_PERIOD_MS','AutoRefillPolicy.exactZero'):
+    assert item in watcher,item
+for unwanted in ('ProcessBuilder(', 'getContentResolver().call(', 'Files.move('):
+    assert unwanted not in watcher,unwanted
+worker=get('AutoRefillWorker.java')
+for item in ('new ProcessBuilder("su", "-c", RootRefillCommand.script(auto))',
+             'getLaunchIntentSenderForPackage', 'WRITE_9_VERIFIED_',
+             'LAUNCH_FAILED_', 'AUTO_SKIP_NONZERO'):
+    assert item in worker,item
+assert 'ROOT_REFUSED' not in worker
+command=get('RootRefillCommand.java')
+assert "printf '%s' '9' >" in command
+assert 'MCC_REFILL_WRITE_VERIFIED' in command
+assert 'am start' not in command
+activity=get('RefillControlActivity.java')
+for item in ('getLaunchedFromUid()', 'getLaunchedFromPackage()',
+             'RootRefillCommand.ACTION_FROM_TARGET', 'startRefill('):
+    assert item in activity,item
+manifest=ET.fromstring((root/'app/src/main/AndroidManifest.xml').read_text())
+ns='{http://schemas.android.com/apk/res/android}'
+application=manifest.find('application')
+assert not application.findall('provider'), 'Old exported refill provider must be gone'
+assert any(x.attrib.get(ns+'name')=='.RefillControlActivity' for x in application.findall('activity'))
+assert (java/'DiamondButtonPlacement.java').is_file()
+assert (root/'app/src/test/java/dev/mikey/mccviplab/DiamondButtonPlacementTest.java').is_file()
 assert (root/'app/src/test/java/dev/mikey/mccviplab/RootRefillCommandTest.java').is_file()
-assert (root/'app/src/test/java/dev/mikey/mccviplab/AutoRefillPolicyTest.java').is_file()
-print('MCC_P10_HF01_P09_LIFECYCLE_UI_AND_RESTART_SOURCE_CONTRACT_PASS')
+print('MCC_P10_PERSONAL_VERSION_RECORD_BUTTON_ROOT_HANDOFF_CONTRACT_PASS')

@@ -26,7 +26,7 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 public final class HookEntry implements IXposedHookLoadPackage {
     private static final String TAG = "MCCVIPLAB";
     private static final String TARGET = "br.art.code.meucronogramacapilar";
-    private static final String EXPECTED_VERSION = "20.2609.3009";
+    private static final String LAST_TESTED_APP_VERSION = "20.2609.3009";
     private static final AtomicBoolean INSTALLED = new AtomicBoolean(false);
     private static final AtomicBoolean PATCH_TOAST = new AtomicBoolean(false);
 
@@ -40,10 +40,17 @@ public final class HookEntry implements IXposedHookLoadPackage {
                 @Override protected void afterHookedMethod(MethodHookParam param) {
                     Context ctx=(Context)param.args[0];
                     try {
-                        PackageInfo pi=ctx.getPackageManager().getPackageInfo(TARGET,0);
-                        if (!EXPECTED_VERSION.equals(pi.versionName)) {
-                            log("REFUSED_VERSION: expected="+EXPECTED_VERSION+" actual="+pi.versionName);
-                            return;
+                        // Evidence only: never refuse a newer app version solely by version name.
+                        try {
+                            PackageInfo pi = ctx.getPackageManager().getPackageInfo(TARGET, 0);
+                            String current = pi.versionName == null ? "unknown" : pi.versionName;
+                            log("TESTED_APP_VERSION=" + LAST_TESTED_APP_VERSION +
+                                    " installed=" + current + " reference_match=" +
+                                    LAST_TESTED_APP_VERSION.equals(current) +
+                                    " record_only=true runtime_hooks_best_effort=true");
+                        } catch (Throwable metadataError) {
+                            log("TESTED_APP_VERSION=" + LAST_TESTED_APP_VERSION +
+                                    " installed=unavailable record_only=true");
                         }
                         if (INSTALLED.compareAndSet(false,true))
                             install(lpparam.classLoader,ctx);

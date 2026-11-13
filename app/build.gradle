@@ -8,10 +8,12 @@ android {
         applicationId 'dev.mikey.mccviplab'
         minSdk 26
         targetSdk 28
-        versionCode 1
-        versionName '1.0.0-lab'
+        versionCode 2
+        versionName '1.0.0-personal.1'
     }
-    buildTypes { release { minifyEnabled false } }
+    buildTypes {
+        release { minifyEnabled false }
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -19,8 +21,24 @@ android {
     testOptions { unitTests.returnDefaultValues = true }
 }
 
+// Deliberately never embed a private signing key/password in the repository.
+// The personal GitHub Actions workflow supplies these four environment variables.
+def signingPath = System.getenv('MCC_SIGNING_KEYSTORE_PATH')
+def signingStorePassword = System.getenv('MCC_SIGNING_STORE_PASSWORD')
+def signingAlias = System.getenv('MCC_SIGNING_KEY_ALIAS')
+def signingKeyPassword = System.getenv('MCC_SIGNING_KEY_PASSWORD')
+if ([signingPath, signingStorePassword, signingAlias, signingKeyPassword].every { it != null && !it.isEmpty() }) {
+    android.signingConfigs.create('personal') {
+        storeFile file(signingPath)
+        storePassword signingStorePassword
+        keyAlias signingAlias
+        keyPassword signingKeyPassword
+    }
+    android.buildTypes.release.signingConfig = android.signingConfigs.personal
+}
+
 dependencies {
-    // Compile signatures only. The stubs are NOT packaged into the module.
+    // Xposed interfaces are compile-only, never bundled in the APK.
     compileOnly files('libs/xposed-api-82-stubs.jar')
     testImplementation 'junit:junit:4.13.2'
 }
