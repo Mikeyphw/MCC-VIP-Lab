@@ -1,132 +1,108 @@
 package dev.mikey.mccviplab;
 
 import android.content.Context;
+import android.net.Uri;
 import android.os.FileObserver;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.provider.Settings;
+import android.os.SystemClock;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import de.robv.android.xposed.XposedBridge;
 
 /**
- * Experimental local-only storage refill: convert one-byte ASCII '0' to '9'.
- * It cannot update MobX/Dart memory directly, and it does not establish server credit.
- * Runs only inside the scoped target process while that process is alive.
+ * Detects exactly one ASCII '0' in target file, then requests the separate
+ * module process to repeat the proven P09 stop/write/restart sequence.
+ * Never edits the file in the Flutter process (would leave MobX stale).
  */
 public final class AutoRefillWatcher {
     private static final String TAG = "MCCREFILL";
-    private static final String SETTING = "mcc_lab_refill_9_enabled";
-    private static final long FALLBACK_POLL_MS = 1200L;
+    private static final String AUTHORITY = "content://" + RootRefillCommand.PROVIDER_AUTHORITY;
+    private static final long POLL_MS = 1200L;
+    private static final long QUIET_PERIOD_MS = 750L;
+    private static final long REQUEST_GAP_MS = 6000L;
     private static final AtomicBoolean STARTED = new AtomicBoolean(false);
-    private static final AtomicBoolean ANNOUNCED = new AtomicBoolean(false);
-    private static Handler threadHandler;
-    private static FileObserver directoryObserver;
-    private static File databaseDirectory;
+    private static Handler handler;
+    private static FileObserver observer;
+    private static File directory;
     private static Context context;
-    private static int successfulRefills;
-    private static int failures;
-
+    private static long zeroFirstSeen;
+    private static long lastRequest;
+    private static int logged;
     private AutoRefillWatcher() {}
 
-    private static void log(String message) {
-        XposedBridge.log(TAG + ": " + message);
+    private static void note(String value) {
+        if (logged++ < 40) XposedBridge.log(TAG + ": " + value);
     }
 
-    private static boolean enabled() {
-        try {
-            return !"0".equals(Settings.Global.getString(context.getContentResolver(), SETTING));
-        } catch (Throwable error) {
-            // Setting is optional; the dedicated feature branch defaults to enabled.
-            return true;
+    private static void poll() {
+        File balance = AutoRefillPolicy.uniqueBalanceFile(directory);
+        if (balance == null || balance.length() != 1) {
+            zeroFirstSeen = 0;
+            return;
         }
-    }
-
-    private static boolean stillZero(File target, long size, long lastModified) throws Exception {
-        if (!target.isFile() || Files.isSymbolicLink(target.toPath()) ||
-                target.length() != size || target.lastModified() != lastModified) return false;
-        return AutoRefillPolicy.exactZero(Files.readAllBytes(target.toPath()));
-    }
-
-    /** Only called on the background HandlerThread. Never edit non-zero balances. */
-    private static void check(final String reason) {
-        if (!enabled()) return;
-        File target = AutoRefillPolicy.uniqueBalanceFile(databaseDirectory);
-        if (target == null || target.length() != 1L) return;
-        File temporary = null;
         try {
-            long lastModified = target.lastModified();
-            byte[] current = Files.readAllBytes(target.toPath());
-            byte[] updated = AutoRefillPolicy.nineOnlyWhenZero(current);
-            if (updated == null) return;
-            // Same-directory atomic replacement avoids exposing a partially-written file.
-            temporary = File.createTempFile(".mcc-refill-", ".tmp", databaseDirectory);
-            try (FileOutputStream stream = new FileOutputStream(temporary, false)) {
-                stream.write(updated);
-                stream.getFD().sync();
+            if (!AutoRefillPolicy.exactZero(Files.readAllBytes(balance.toPath()))) {
+                zeroFirstSeen = 0;
+                return;
             }
-            if (!stillZero(target, current.length, lastModified)) return;
-            // An atomic rename is required; never fall back to truncating the live file.
-            Files.move(temporary.toPath(), target.toPath(),
-                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            temporary = null;
-            if (successfulRefills++ < 30) log("ZERO_TO_NINE_PERSISTED source=" + reason +
-                    " local_file_only=true ui_refresh_unverified=true");
-        } catch (Throwable failure) {
-            if (failures++ < 10) log("FILE_UPDATE_REFUSED reason=" + failure.getClass().getSimpleName());
-        } finally {
-            if (temporary != null) temporary.delete();
+            long now = SystemClock.elapsedRealtime();
+            if (zeroFirstSeen == 0) { zeroFirstSeen = now; return; }
+            if (now - zeroFirstSeen < QUIET_PERIOD_MS || now - lastRequest < REQUEST_GAP_MS) return;
+            lastRequest = now;
+            // This call runs in the target process, but root commands run in
+            // the installed module's separate Android process.
+            android.os.Bundle response = context.getContentResolver().call(
+                    Uri.parse(AUTHORITY), "AUTO_ZERO", null, null);
+            String status = response == null ? "NO_RESPONSE" : response.getString("result", "NO_RESULT");
+            note("AUTO_REQUEST_RESULT=" + status + " P09_RESTART_SEQUENCE=true");
+        } catch (Throwable error) {
+            lastRequest = SystemClock.elapsedRealtime();
+            note("AUTO_PROVIDER_UNAVAILABLE=" + error.getClass().getSimpleName());
         }
     }
 
     private static void startObserver() {
-        if (directoryObserver != null || !databaseDirectory.isDirectory()) return;
+        if (observer != null || !directory.isDirectory()) return;
         try {
-            directoryObserver = new FileObserver(databaseDirectory.getAbsolutePath(),
+            observer = new FileObserver(directory.getAbsolutePath(),
                     FileObserver.CLOSE_WRITE | FileObserver.MOVED_TO | FileObserver.CREATE) {
-                @Override public void onEvent(int event, String relativePath) {
-                    if (!AutoRefillPolicy.allowedName(relativePath)) return;
-                    Handler handler = threadHandler;
-                    if (handler != null) handler.post(() -> check("file_observer"));
+                @Override public void onEvent(int event, String path) {
+                    if (!AutoRefillPolicy.allowedName(path)) return;
+                    Handler h = handler;
+                    if (h != null) h.post(AutoRefillWatcher::poll);
                 }
             };
-            directoryObserver.startWatching();
-            log("WATCHER_STARTED event_and_periodic_fallback=true");
-        } catch (Throwable failure) {
-            directoryObserver = null;
-            log("FILE_OBSERVER_UNAVAILABLE fallback=poll reason=" + failure.getClass().getSimpleName());
+            observer.startWatching();
+            note("WATCHING_0_WITH_P09_RESTART provider=module_process");
+        } catch (Throwable error) {
+            observer = null;
+            note("OBSERVER_UNAVAILABLE periodic_poll_remains=true");
         }
     }
 
-    public static void install(Context applicationContext) {
+    public static void install(Context appContext) {
         if (!STARTED.compareAndSet(false, true)) return;
         try {
-            context = applicationContext.getApplicationContext();
-            databaseDirectory = new File(context.getApplicationInfo().dataDir, "databases");
-            HandlerThread worker = new HandlerThread("mcc-refill-nine");
-            worker.start();
-            threadHandler = new Handler(worker.getLooper());
-            final Runnable tick = new Runnable() {
+            context = appContext.getApplicationContext();
+            directory = new File(context.getApplicationInfo().dataDir, "databases");
+            HandlerThread thread = new HandlerThread("mcc-zero-restart-observer");
+            thread.start();
+            handler = new Handler(thread.getLooper());
+            handler.post(new Runnable() {
                 @Override public void run() {
                     startObserver();
-                    check("periodic");
-                    Handler handler = threadHandler;
-                    if (handler != null) handler.postDelayed(this, FALLBACK_POLL_MS);
+                    poll();
+                    handler.postDelayed(this, POLL_MS);
                 }
-            };
-            threadHandler.post(tick);
-            if (ANNOUNCED.compareAndSet(false, true)) {
-                log("INSTALLED target_process_only=true zero_to_nine=true default_enabled=true " +
-                        "flutter_memory_not_hooked=true backend_not_verified=true");
-            }
+            });
+            note("INSTALLED p09_force_stop_write_restart=true default_auto_enabled_in_module=true");
         } catch (Throwable error) {
             STARTED.set(false);
-            log("INSTALL_FAILED reason=" + error.getClass().getSimpleName());
+            note("INSTALL_FAILED=" + error.getClass().getSimpleName());
         }
     }
 }
