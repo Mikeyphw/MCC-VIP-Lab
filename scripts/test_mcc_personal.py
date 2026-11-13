@@ -33,6 +33,28 @@ class PersonalTests(unittest.TestCase):
         self.assertIn('diamondLabel',b)
         self.assertIn('dp(activity, 68)',b)
 
+    def test_release_lint_override_is_narrow_and_private(self):
+        from verify_personal_release import assert_scoped_personal_lint_policy
+        gradle = (ROOT/'app/build.gradle').read_text()
+        assert_scoped_personal_lint_policy(gradle)
+        self.assertIn("targetSdk 28", gradle)
+        self.assertNotIn("abortOnError false", gradle)
+
+    def test_release_lint_guard_rejects_broad_disables_and_target_change(self):
+        from verify_personal_release import assert_scoped_personal_lint_policy
+        source = (ROOT/'app/build.gradle').read_text()
+        broken = (
+            source.replace("disable 'ExpiredTargetSdkVersion'", "disable 'NewApi'"),
+            source.replace("targetSdk 28", "targetSdk 35"),
+            source.replace("    lint {", "    lint {\n        abortOnError false"),
+            source.replace("    lint {", "    lint {\n        disable 'NewApi'"),
+            source.replace("    lint {", "    lint {\n        checkReleaseBuilds false"),
+        )
+        for bad in broken:
+            with self.subTest(marker=bad[:95]):
+                with self.assertRaises(AssertionError):
+                    assert_scoped_personal_lint_policy(bad)
+
     @unittest.skipUnless(shutil.which('javac') and shutil.which('java'), 'Java compiler absent')
     def test_pure_java_position_algorithm_and_shell_generated(self):
         source=textwrap.dedent('''
